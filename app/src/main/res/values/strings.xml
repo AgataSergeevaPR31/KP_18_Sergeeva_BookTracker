@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Book Tracker</string>
+    <string name="saving_reading_session">Сохранение сеанса чтения</string>
+    <string name="you_read">Вы читали</string>
+    <string name="read_pages">Прочитано</string>
+    <string name="situation">Положение дел</string>
+    <string name="select_category">Выберите категорию</string>
+    <string name="next">Далее</string>
+    <string name="current_page">Текущая страница</string>
+    <string name="select_current_page">На какой странице вы остановились?</string>
+    <string name="cancel">Отмена</string>
+    <string name="ok">ОК</string>
+    <string name="save">Сохранить</string>
+    <string name="edit_time">Редактировать время</string>
+    <string name="of_pages">из %1$d страниц</string>
+    <string name="current_page_title">Текущая страница</string>
+    <string name="current_page_message">На какой странице вы остановились?</string>
+    <string name="pages_info_format">%1$d из %2$d</string>
+    <string name="time_format">%02d:%02d:%02d</string>
+    <string name="achievement"></string>
+</resources>
