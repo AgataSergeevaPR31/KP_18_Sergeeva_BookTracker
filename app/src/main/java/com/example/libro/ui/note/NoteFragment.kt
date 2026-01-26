@@ -1,5 +1,6 @@
 package com.example.libro.ui.notes
 
+import NotesAdapter
 import android.app.AlertDialog
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -14,7 +15,6 @@ import com.bumptech.glide.Glide
 import com.example.libro.Database.AppDatabase
 import com.example.libro.Database.Note
 import com.example.libro.R
-import com.example.libro.ui.Adapters.NotesAdapter
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -167,17 +167,8 @@ class NoteFragment : Fragment() {
 
                 withContext(Dispatchers.Main) {
                     allNotes = notes
+                    notesAdapter.updateBookMap(bookMap, coverImageMap)
                     applyFiltersAndSort()
-
-                    notesAdapter = NotesAdapter(
-                        requireContext(),
-                        filteredNotes,
-                        bookMap,
-                        coverImageMap,
-                        onFavoriteClick = { note -> toggleFavorite(note) },
-                        onDeleteClick = { note -> deleteNote(note) }
-                    )
-                    notesRecyclerView.adapter = notesAdapter
                 }
 
             } catch (e: Exception) {
@@ -202,10 +193,7 @@ class NoteFragment : Fragment() {
             SortOption.PAGE_ASC -> result.sortedBy { it.pageNumber ?: 0 }
             SortOption.PAGE_DESC -> result.sortedByDescending { it.pageNumber ?: 0 }
         }
-
-        if (::notesAdapter.isInitialized) {
-            notesAdapter.updateNotes(filteredNotes)
-        }
+        notesAdapter.updateNotes(filteredNotes)
 
         updateUI()
     }

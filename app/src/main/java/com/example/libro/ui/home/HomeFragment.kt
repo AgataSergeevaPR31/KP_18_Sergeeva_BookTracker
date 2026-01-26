@@ -2,6 +2,7 @@ package com.example.libro.ui.home
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -30,6 +31,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
+import android.graphics.Canvas
+import android.graphics.Paint
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -48,6 +51,16 @@ class HomeFragment : Fragment() {
     private lateinit var lentCountTextView: TextView
     private lateinit var purchasedCard: CardView
     private lateinit var lentCard: CardView
+
+    private lateinit var weekBarsContainer: LinearLayout
+    private lateinit var pieChartVisual: LinearLayout
+    private lateinit var pieChartTotal: TextView
+    private lateinit var piePurchasedValue: TextView
+    private lateinit var pieLentValue: TextView
+    private lateinit var pieOtherValue: TextView
+    private lateinit var piePurchasedLabel: TextView
+    private lateinit var pieLentLabel: TextView
+    private lateinit var pieOtherLabel: TextView
 
     private lateinit var statisticsAdapter: StatisticsAdapter
 
@@ -71,6 +84,16 @@ class HomeFragment : Fragment() {
         lentCountTextView = view.findViewById(R.id.lentCountTextView)
         purchasedCard = view.findViewById(R.id.purchasedCard)
         lentCard = view.findViewById(R.id.lentCard)
+
+        weekBarsContainer = view.findViewById(R.id.weekBarsContainer)
+        pieChartVisual = view.findViewById(R.id.pieChartVisual)
+        pieChartTotal = view.findViewById(R.id.pieChartTotal)
+        piePurchasedValue = view.findViewById(R.id.piePurchasedValue)
+        pieLentValue = view.findViewById(R.id.pieLentValue)
+        pieOtherValue = view.findViewById(R.id.pieOtherValue)
+        piePurchasedLabel = view.findViewById(R.id.piePurchasedLabel)
+        pieLentLabel = view.findViewById(R.id.pieLentLabel)
+        pieOtherLabel = view.findViewById(R.id.pieOtherLabel)
 
         setupAdapters()
         loadData()
@@ -120,17 +143,23 @@ class HomeFragment : Fragment() {
                 val readingSessions = database.readingSessionDao().getAllSessions()
 
                 val totalBooks = database.bookDao().getAllBooks()
-                val purchasedBooks = totalBooks.count { it.isPurchased }
+                val purchasedBooks = totalBooks.count { it.isPurchased && !it.isLent }
                 val lentBooks = totalBooks.count { it.isLent }
+                val otherBooks = totalBooks.count { !it.isPurchased && !it.isLent }
 
                 val fireStreak = calculateFireStreak(readingSessions)
 
                 val statistics = calculateStatistics(readingSessions)
 
+                val weekReadingData = getWeekReadingData(readingSessions)
+
                 withContext(Dispatchers.Main) {
                     updateFireStreakUI(fireStreak)
                     updateStatisticsUI(statistics)
                     updateBookCountsUI(purchasedBooks, lentBooks)
+
+                    updateNormalizedBarChart(weekReadingData)
+                    updatePieChart(purchasedBooks, lentBooks, otherBooks)
 
                     readingCalendarView.setReadingDates(getReadingDates(readingSessions))
 
@@ -138,6 +167,204 @@ class HomeFragment : Fragment() {
                 }
             }
         }
+    }
+
+    private fun updateNormalizedBarChart(weekData: List<Pair<String, Float>>) {
+        weekBarsContainer.removeAllViews()
+
+        val maxValue = if (weekData.isNotEmpty()) {
+            val values = weekData.map { it.second }
+            val nonZeroValues = values.filter { it > 0 }
+            if (nonZeroValues.isNotEmpty()) nonZeroValues.max() else 1f
+        } else {
+            1f
+        }
+
+        val maxBarHeight = 100.dpToPx()
+        val daysOfWeek = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
+
+        weekData.forEachIndexed { index, pair ->
+            val barContainer = LinearLayout(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    1f
+                )
+                orientation = LinearLayout.VERTICAL
+                gravity = android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL
+                setPadding(4.dpToPx(), 0, 4.dpToPx(), 0)
+            }
+
+            val normalizedHeight = if (maxValue > 0 && pair.second > 0) {
+                (pair.second / maxValue * maxBarHeight).toInt()
+            } else {
+                5.dpToPx()
+            }
+            val barHeight = if (normalizedHeight > 0) normalizedHeight else 5.dpToPx()
+
+            val barView = View(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    24.dpToPx(),
+                    barHeight
+                )
+                setBackgroundColor(requireContext().getColor(
+                    if (pair.second > 0) R.color.elements else R.color.gray
+                ))
+            }
+
+            val dayLabel = TextView(requireContext()).apply {
+                text = daysOfWeek.getOrNull(index) ?: ""
+                textSize = 10f
+                setTextColor(requireContext().getColor(R.color.text_secondary))
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = 4.dpToPx()
+                }
+            }
+
+            val valueLabel = TextView(requireContext()).apply {
+                text = if (pair.second > 0) "${pair.second.toInt()}" else ""
+                textSize = 8f
+                setTextColor(requireContext().getColor(R.color.text_primary))
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = 4.dpToPx()
+                }
+            }
+
+            barContainer.addView(valueLabel)
+            barContainer.addView(barView)
+            barContainer.addView(dayLabel)
+            weekBarsContainer.addView(barContainer)
+        }
+    }
+
+    private fun updatePieChart(purchased: Int, lent: Int, other: Int) {
+        val totalBooks = purchased + lent + other
+
+        pieChartTotal.text = totalBooks.toString()
+        piePurchasedValue.text = purchased.toString()
+        pieLentValue.text = lent.toString()
+        pieOtherValue.text = other.toString()
+
+        if (totalBooks > 0) {
+            val purchasedPercent = (purchased.toFloat() / totalBooks * 100).toInt()
+            val lentPercent = (lent.toFloat() / totalBooks * 100).toInt()
+            val otherPercent = (other.toFloat() / totalBooks * 100).toInt()
+
+            val purchasedPercentExact = purchased.toFloat() / totalBooks * 100
+            val lentPercentExact = lent.toFloat() / totalBooks * 100
+            val otherPercentExact = other.toFloat() / totalBooks * 100
+
+            val purchasedPercentDisplay = String.format("%.0f", purchasedPercentExact)
+            val lentPercentDisplay = String.format("%.0f", lentPercentExact)
+            val otherPercentDisplay = String.format("%.0f", otherPercentExact)
+
+            piePurchasedLabel.text = "Купленные (${purchasedPercentDisplay}%)"
+            pieLentLabel.text = "Одолженные (${lentPercentDisplay}%)"
+            pieOtherLabel.text = "Другие (${otherPercentDisplay}%)"
+
+            createPieChartView(purchasedPercentExact, lentPercentExact, otherPercentExact)
+        } else {
+            piePurchasedLabel.text = "Купленные (0%)"
+            pieLentLabel.text = "Одолженные (0%)"
+            pieOtherLabel.text = "Другие (0%)"
+            createPieChartView(0f, 0f, 0f)
+        }
+    }
+
+    private fun createPieChartView(purchasedPercent: Float, lentPercent: Float, otherPercent: Float) {
+        pieChartVisual.removeAllViews()
+
+        val pieChartView = object : View(requireContext()) {
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+
+                val width = measuredWidth.toFloat()
+                val height = measuredHeight.toFloat()
+                val centerX = width / 2
+                val centerY = height / 2
+                val radius = (width.coerceAtMost(height) / 2) - 5
+
+                val paint = Paint().apply {
+                    isAntiAlias = true
+                    style = Paint.Style.FILL
+                }
+
+                var startAngle = -90f
+
+                if (purchasedPercent > 0) {
+                    paint.color = requireContext().getColor(R.color.elements)
+                    val sweepAngle = purchasedPercent * 360f / 100
+                    canvas.drawArc(
+                        centerX - radius, centerY - radius,
+                        centerX + radius, centerY + radius,
+                        startAngle, sweepAngle, true, paint
+                    )
+                    startAngle += sweepAngle
+                }
+
+                if (lentPercent > 0) {
+                    paint.color = requireContext().getColor(R.color.success)
+                    val sweepAngle = lentPercent * 360f / 100
+                    canvas.drawArc(
+                        centerX - radius, centerY - radius,
+                        centerX + radius, centerY + radius,
+                        startAngle, sweepAngle, true, paint
+                    )
+                    startAngle += sweepAngle
+                }
+
+                if (otherPercent > 0) {
+                    paint.color = requireContext().getColor(R.color.category_1)
+                    val sweepAngle = otherPercent * 360f / 100
+                    canvas.drawArc(
+                        centerX - radius, centerY - radius,
+                        centerX + radius, centerY + radius,
+                        startAngle, sweepAngle, true, paint
+                    )
+                }
+            }
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(
+                150.dpToPx(),
+                150.dpToPx()
+            )
+        }
+
+        pieChartVisual.addView(pieChartView)
+    }
+
+    private fun getWeekReadingData(sessions: List<ReadingSession>): List<Pair<String, Float>> {
+        val calendar = Calendar.getInstance()
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+        calendar.firstDayOfWeek = Calendar.MONDAY
+
+        val weekData = mutableListOf<Pair<String, Float>>()
+
+        for (i in 6 downTo 0) {
+            calendar.time = Date()
+            calendar.add(Calendar.DAY_OF_YEAR, -i)
+
+            val dayStr = dateFormat.format(calendar.time)
+
+            val daySessions = sessions.filter { session ->
+                val sessionDay = dateFormat.format(session.startTime)
+                sessionDay == dayStr
+            }
+
+            val totalMinutes = daySessions.sumOf { it.duration } / 60.0f
+            weekData.add(Pair("", totalMinutes))
+        }
+
+        return weekData
     }
 
     private fun updateStatisticsUI(statistics: List<StatisticItem>) {
@@ -170,8 +397,7 @@ class HomeFragment : Fragment() {
             val authorTextView: TextView = bookCard.findViewById(R.id.bookAuthorTextView)
             val startDateTextView: TextView = bookCard.findViewById(R.id.startDateTextView)
             val notesCountTextView: TextView = bookCard.findViewById(R.id.notesCountTextView)
-            val progressPercentageTextView: TextView =
-                bookCard.findViewById(R.id.progressPercentageTextView)
+            val progressPercentageTextView: TextView = bookCard.findViewById(R.id.progressPercentageTextView)
             val pagesReadTextView: TextView = bookCard.findViewById(R.id.pagesReadTextView)
             val readingTimeTextView: TextView = bookCard.findViewById(R.id.readingTimeTextView)
             val timeLeftTextView: TextView = bookCard.findViewById(R.id.timeLeftTextView)
@@ -196,8 +422,7 @@ class HomeFragment : Fragment() {
             }
 
             val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
-            startDateTextView.text =
-                "Начало: ${book.startDate?.let { dateFormat.format(it) } ?: "Не указано"}"
+            startDateTextView.text = "Начало: ${book.startDate?.let { dateFormat.format(it) } ?: "Не указано"}"
 
             lifecycleScope.launch(Dispatchers.IO) {
                 val notesCount = database.noteDao().getNotesByBookId(book.bookId).size
@@ -435,6 +660,11 @@ class HomeFragment : Fragment() {
             putExtra(TimerActivity.EXTRA_BOOK_ID, bookId)
         }
         startActivityForResult(intent, REQUEST_READING_TIMER)
+    }
+
+    private fun Int.dpToPx(): Int {
+        val density = resources.displayMetrics.density
+        return (this * density).toInt()
     }
 
     companion object {

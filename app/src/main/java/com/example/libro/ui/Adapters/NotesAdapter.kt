@@ -1,16 +1,18 @@
-package com.example.libro.ui.Adapters
-
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.libro.Database.Note
 import com.example.libro.R
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Locale
 
 class NotesAdapter(
     private val context: android.content.Context,
@@ -22,6 +24,14 @@ class NotesAdapter(
 ) : RecyclerView.Adapter<NotesAdapter.NoteViewHolder>() {
 
     private val dateFormat = SimpleDateFormat("dd MMMM yyyy", Locale.getDefault())
+
+    private val categoryColors = arrayOf(
+        R.color.category_1,
+        R.color.category_2,
+        R.color.category_3,
+        R.color.category_4,
+        R.color.category_5
+    )
 
     fun updateNotes(newNotes: List<Note>) {
         this.notes = newNotes
@@ -66,8 +76,24 @@ class NotesAdapter(
         if (!note.category.isNullOrEmpty()) {
             holder.categoryTextView.text = note.category
             holder.categoryTextView.visibility = View.VISIBLE
+
+            val colorIndex = note.category.hashCode() % categoryColors.size
+            holder.categoryTextView.setBackgroundColor(
+                context.getColor(categoryColors[colorIndex])
+            )
         } else {
             holder.categoryTextView.visibility = View.GONE
+        }
+
+        if (!note.imagePath.isNullOrEmpty()) {
+            holder.noteImageView.visibility = View.VISIBLE
+            Glide.with(context)
+                .load(note.imagePath)
+                .placeholder(R.drawable.plug)
+                .centerCrop()
+                .into(holder.noteImageView)
+        } else {
+            holder.noteImageView.visibility = View.GONE
         }
 
         if (note.isFavorite) {
@@ -94,6 +120,13 @@ class NotesAdapter(
         holder.deleteButton.setOnClickListener {
             onDeleteClick(note)
         }
+
+        holder.copyButton.setOnClickListener {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("Заметка", note.noteText)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(context, "Текст заметки скопирован", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun getItemCount(): Int = notes.size
@@ -105,8 +138,10 @@ class NotesAdapter(
         val bookAuthorTextView: TextView = itemView.findViewById(R.id.bookAuthorTextView)
         val textPageNumber: TextView = itemView.findViewById(R.id.textPageNumber)
         val categoryTextView: TextView = itemView.findViewById(R.id.categoryTextView)
+        val noteImageView: ImageView = itemView.findViewById(R.id.noteImageView)
         val favoriteButton: ImageView = itemView.findViewById(R.id.favoriteButton)
         val deleteButton: ImageView = itemView.findViewById(R.id.deleteButton)
+        val copyButton: ImageView = itemView.findViewById(R.id.copyButton)
         val bookCoverImageView: ImageView = itemView.findViewById(R.id.bookCoverImageView)
     }
 }

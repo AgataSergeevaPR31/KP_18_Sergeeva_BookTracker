@@ -16,4 +16,10 @@
     <color name="success">#FF4CAF50</color>
     <color name="warning">#FFFF9800</color>
     <color name="text_primary">#FF212121</color>
+
+    <color name="category_1">#FF6B6B</color>
+    <color name="category_2">#4ECDC4</color>
+    <color name="category_3">#FFD166</color>
+    <color name="category_4">#06D6A0</color>
+    <color name="category_5">#118AB2</color>
 </resources>

@@ -110,6 +110,7 @@ class SaveReadingSessionActivity : AppCompatActivity() {
     private suspend fun calculateCurrentStreak(): Int {
         val readingSessions = readingSessionDao.getAllSessions()
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
         val datesWithReading = mutableSetOf<String>()
 
         readingSessions.forEach { session ->
@@ -118,21 +119,16 @@ class SaveReadingSessionActivity : AppCompatActivity() {
             }
         }
 
-        val todayStr = dateFormat.format(Date())
-        if (isFirstReadingToday && !datesWithReading.contains(todayStr)) {
-            datesWithReading.add(todayStr)
-        }
-
         if (datesWithReading.isEmpty()) {
-            return 0
+            return if (isFirstReadingToday) 1 else 0
         }
 
         val sortedDates = datesWithReading.sorted()
 
-        var streak = 0
+        var streak = -1
         val calendar = Calendar.getInstance()
 
-        calendar.time = Date()
+        calendar.add(Calendar.DAY_OF_YEAR, -1)
         var currentDateStr = dateFormat.format(calendar.time)
 
         while (true) {
@@ -142,6 +138,19 @@ class SaveReadingSessionActivity : AppCompatActivity() {
                 currentDateStr = dateFormat.format(calendar.time)
             } else {
                 break
+            }
+        }
+
+        if (isFirstReadingToday) {
+            val todayStr = dateFormat.format(Date())
+            val yesterdayCalendar = Calendar.getInstance()
+            yesterdayCalendar.add(Calendar.DAY_OF_YEAR, -1)
+            val yesterdayStr = dateFormat.format(yesterdayCalendar.time)
+
+            if (sortedDates.contains(yesterdayStr)) {
+                streak += 1
+            } else {
+                streak = 1
             }
         }
 

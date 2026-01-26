@@ -140,7 +140,7 @@ class TimerWorker(appContext: Context, workerParams: WorkerParameters) :
             )
 
             val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-                .setContentTitle("⏰ Время чтения вышло!")
+                .setContentTitle("Время чтения вышло!")
                 .setContentText("Таймер для книги \"$bookTitle\" завершился")
                 .setSmallIcon(R.drawable.timer)
                 .setContentIntent(pendingIntent)

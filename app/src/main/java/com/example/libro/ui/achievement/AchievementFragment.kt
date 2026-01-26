@@ -90,12 +90,12 @@ class AchievementFragment : Fragment() {
                 showAchievementDetails(achievement, userAchievement)
             }
         )
-        val layoutManager = GridLayoutManager(context, 3)
+        val layoutManager = GridLayoutManager(context, 2)
         binding.recyclerViewAchievements.layoutManager = layoutManager
         binding.recyclerViewAchievements.adapter = adapter
 
         val spacing = resources.getDimensionPixelSize(R.dimen.grid_spacing)
-        binding.recyclerViewAchievements.addItemDecoration(GridSpacingItemDecoration(3, spacing, true))
+        binding.recyclerViewAchievements.addItemDecoration(GridSpacingItemDecoration(2, spacing, true))
     }
 
     private fun setupObservers() {
